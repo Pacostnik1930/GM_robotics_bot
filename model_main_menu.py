@@ -1,11 +1,9 @@
-
 from telebot import types
-from model_main_menu import model_main_menu
 
 class UserState:
     def __init__(self):
         self.is_photo_received = False
-        self.photos_received = 0
+        self.is_photos_received = 0
         self.description_received = False
         self.description = ""
         self.photo_id = None
@@ -27,14 +25,14 @@ def start(message, bot):
     btn_3d_print = types.InlineKeyboardButton('3D ПЕЧАТЬ', callback_data='3d_print_main_menu')
     markup.row(btn_3d_model, btn_3d_print)
     bot.send_message(message.chat.id, f"Привет, {message.from_user.first_name}! \nВыберите интересующий Вас раздел 😃", reply_markup=markup, parse_mode='HTML')
-    
+
 
 def handle_photo(message, bot):
     state = get_user_state(message.from_user.id)
     state.is_photo_received = True
-    state.photos_received += 1
-    if state.photos_received == 1:
-        bot.send_message(message.chat.id, "Фотография получена! Опишите фронт работ.")
+    state.is_photos_received += 1
+    if state.is_photos_received == 1:
+        bot.send_message(message.chat.id, "Фотография получена! Комментарии к фото.")
         state.description_received = True
         state.photo_id = message.photo[-1].file_id
     else: send_buttons_after_delete(message,bot)
@@ -57,7 +55,7 @@ def handle_description(message, bot):
     state = get_user_state(message.from_user.id)
     state.description = message.text
     state.description_received = False
-    bot.send_message(message.chat.id, f"Описание фронт работ сохранено: {state.description}")
+    bot.send_message(message.chat.id, f"Описание фронт работ сохранено: {state.description1}")
 
     keyboard = types.InlineKeyboardMarkup()
     delete_button = types.InlineKeyboardButton(text="Удалить фото", callback_data="delete_photo")
@@ -81,10 +79,8 @@ def delete_photo(call, bot):
         else: bot.delete_message(call.message.chat.id, call.message.message_id - 4)
     except Exception as e:
         print(f"Ошибка при удалении сообщения: {e}")
-    bot.send_message(call.message.chat.id, "Фотография удалена, загрузите новую фотографию")
+    bot.send_message(call.message.chat.id, "Файл удален, загрузите новый файл")
     state.is_photo_received = False
-   
-    
     
 
     
@@ -130,12 +126,12 @@ def reset_user_state(call, bot):
     # start(call.message, bot)  # Повторно вызываем стартовое сообщение
 
 
-def scan_main_menu(call, bot):
+def model_main_menu(call, bot):
     user_state = get_user_state(call.from_user.id)
     user_state.is_photo_received = True  # Помечаем, что пользователь перешел в режим добавления фото
-    bot.send_message(call.message.chat.id, "Пожалуйста, отправьте мне фотографию для 3D сканирования с подробным описанием.")
+    bot.send_message(call.message.chat.id, "Пожалуйста, отправьте мне фото для 3D моделирования.")
 
-def configure_scan_handlers(bot):
+def configure_model_handlers(bot):
     @bot.message_handler(commands=['start'])
     def start_handler(message):
         user_id = message.from_user.id
@@ -167,12 +163,11 @@ def configure_scan_handlers(bot):
     def confirm_send_handler(call):
         confirm_send(call, bot)
 
+    
     @bot.callback_query_handler(func=lambda call: call.data in ['3d_scan_main_menu', '3d_model_main_menu', '3d_print_main_menu'])
-    def scan_main_menu_handler(call):
-        if call.data == '3d_scan_main_menu':
-            scan_main_menu(call, bot)
-        # elif call.data == '3d_model_main_menu':
-        #     model_main_menu(call,bot)   
+    def model_main_menu_handler(call):
+        if call.data == '3d_model_main_menu':
+            model_main_menu(call, bot)
         # Здесь можно добавить дополнительные обработчики для других кнопок главного меню
 
 
@@ -180,3 +175,9 @@ def configure_scan_handlers(bot):
     @bot.callback_query_handler(func=lambda call: call.data == 'start')
     def reset_user_state_handler(call):
         reset_user_state(call, bot)
+
+
+
+
+
+    
