@@ -1,11 +1,22 @@
 import telebot
 from telebot import types
-
+import sqlite3
 
 bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
 
+user_data = {}
+
+conn = sqlite3.connect('gmbot.db')
+c = conn.cursor()
+c.execute('''CREATE TABLE IF NOT EXISTS printing
+             (id INTEGER PRIMARY KEY AUTOINCREMENT,
+             documents TEXT,
+             description TEXT,
+             name TEXT,
+             telephone TEXT)''')
+conn.commit()
 
 
 
@@ -81,7 +92,26 @@ def handle_description_printing(message,bot):
     user_data[chat_id]['description'] = description
     bot.send_message(chat_id, "Вы ввели следующее описание фронта работ:")
     bot.send_message(chat_id, description)
-    send_confirmation_buttons_printing(message, bot)
+    bot.send_message(chat_id, "Пожалуйста, введите Ваше имя.")
+    bot.register_next_step_handler(message, handle_name_printing, bot)
+
+def handle_name_printing(message,bot):
+    chat_id = message.chat.id
+    name = message.text
+    user_data[chat_id]['name'] = name
+    bot.send_message(chat_id, "Вы ввели следующее имя:")
+    bot.send_message(chat_id, name)
+    bot.send_message(chat_id, "Пожалуйста, введите Ваш телефонный номер.")
+    bot.register_next_step_handler(message, handle_phone_printing, bot)    
+ 
+def handle_phone_printing(message, bot):
+    chat_id = message.chat.id
+    phone = message.text
+    user_data[chat_id]['phone'] = phone
+    bot.send_message(chat_id, "Вы ввели следующий телефонный номер:")
+    bot.send_message(chat_id, phone)
+    send_confirmation_buttons_printing(message, bot) 
+
 
 def send_confirmation_buttons_printing(message, bot):
     keyboard = types.InlineKeyboardMarkup()
@@ -94,131 +124,42 @@ def handle_confirm_send_printing(call):
     chat_id = message.chat.id
     documents = user_data[chat_id]['documents']
     description = user_data[chat_id]['description']
-    send_confirmation_printing(message, bot, documents, description)
+    
+    if 'name' in user_data[chat_id]:
+        name = user_data[chat_id]['name']
+        send_confirmation_printing(message, bot, documents, description, name)
+    else:
+        bot.send_message(chat_id, "Пожалуйста, введите Ваше имя.")
+        bot.register_next_step_handler(message, handle_name_printing, bot)    
 
-def send_confirmation_printing(message,bot, documents, description):
+@bot.callback_query_handler(func=lambda call: call.data == 'confirm_send_printing')
+def handle_confirm_send_printing(call):
+    message = call.message
+    chat_id = message.chat.id
+    documents = user_data[chat_id]['documents']
+    description = user_data[chat_id]['description']
+    name = user_data[chat_id]['name']
+    phone = user_data[chat_id]['phone']
+    send_confirmation_printing(message, bot, documents, description,name,phone)
+
+    conn_thread = sqlite3.connect('gmbot.db')
+    c_thread = conn_thread.cursor()
+
+    c_thread.execute("INSERT INTO printing (documents, description, name, telephone) VALUES (?, ?, ?, ?)",
+                     (','.join(documents), description, name, phone))
+    conn_thread.commit()
+    
+    # Закрытие соединения и курсора в текущем потоке
+    c_thread.close()
+    conn_thread.close()   
+
+
+def send_confirmation_printing(message,bot, documents, description,name,phone):
     bot.send_message(message.chat.id, "Данные отправлены:")
-    for documents in documents:
-        bot.send_document(message.chat.id, documents)
+    for document in documents:
+        bot.send_document(message.chat.id, document)
     bot.send_message(message.chat.id, f"Фронт работ: {description}")
+    bot.send_message(message.chat.id, f"Фронт работ: {name}")
+    bot.send_message(message.chat.id, f"Телефонный номер: {phone}")
     bot.send_message(message.chat.id, "С вами свяжутся в ближайшее время. Чтобы создать новое обращение, нажмите /start.")
-    del user_data[message.chat.id]  
-
-    
-
-
-# def delete_photo(call, bot):
-#     state = get_user_state(call.from_user.id)
-#     try:
-#         if state.is_editing_text:
-#             bot.delete_message(call.message.chat.id)
-#         else: bot.delete_message(call.message.chat.id, call.message.message_id - 4)
-#     except Exception as e:
-#         print(f"Ошибка при удалении сообщения: {e}")
-#     bot.send_message(call.message.chat.id, "Файл удален, загрузите новый файл")
-#     state.is_photo_received = False
-    
-
-    
-
-# def edit_text(call, bot):
-#     state = get_user_state(call.from_user.id)
-#     state.is_editing_text = True
-#     bot.send_message(call.message.chat.id, "Введите новое описание фронт работ:")
-
-# def handle_messages(message, bot):
-#     state = get_user_state(message.from_user.id)
-    
-#     if state.is_editing_text:
-#         state.description = message.text
-#         bot.send_message(message.chat.id, f"Описание отредактировано: {state.description}")
-#         state.is_editing_text = False  # Завершаем процесс редактирования           
-        
-#         keyboard = types.InlineKeyboardMarkup()
-#         delete_button = types.InlineKeyboardButton(text="Удалить фото", callback_data="delete_photo")
-#         edit_text_button = types.InlineKeyboardButton(text="Редактировать текст", callback_data="edit_text")
-#         confirm_button = types.InlineKeyboardButton(text="Подтвердить отправку", callback_data="confirm_send")
-#         keyboard.row(delete_button)
-#         keyboard.row(edit_text_button)
-#         keyboard.row(confirm_button)
-#         bot.send_message(message.chat.id,"Выберите действие",reply_markup = keyboard)
-
-# def confirm_send(call, bot):
-#     state = get_user_state(call.from_user.id)
-#     bot.send_message(call.message.chat.id, "Данные успешно отправлены!")
-#     if state.photo_id:
-#         bot.send_photo(call.message.chat.id, state.photo_id, caption=state.description)  
-#         bot.answer_callback_query(call.id) 
-#         bot.send_message(call.message.chat.id, f"{call.message.from_user.first_name}Специалист свяжется с Вами в ближайшее время")
-#         bot.send_message(call.message.chat.id, "Для повторного обращения нажмите /start")
-#     reset_user_state(call,bot)
-
-
-        
-# def reset_user_state(call, bot):
-#     user_id = call.from_user.id
-#     print(f"Сброс состояния для пользователя {call.from_user.id}")  # Добавляем логирование
-#     if user_id in user_states:
-#         del user_states[user_id]  # Удаляем состояние пользователя для сброса
-#     bot.answer_callback_query(call.id)
-#     # start(call.message, bot)  # Повторно вызываем стартовое сообщение
-
-
-
-
-# def configure_print_handlers(bot):
-#      @bot.message_handler(commands=['start'])
-#      def start_handler(message):
-#         user_id = message.from_user.id
-#         print(f"Команда /start получена от {user_id}")
-#         start(message, bot)
-
-#      @bot.callback_query_handler(func=lambda call: call.data == '3d_print_main_menu')
-#      def handle_3d_print_handler(call):
-#         handle_3d_print(call,bot)
-        
-
-#      @bot.callback_query_handler(func=lambda call: call.data == 'no_3d_model')
-#      def handle_no_3d_model_handler(call):
-#         handle_no_3d_model(call,bot)
-        
-
-#      @bot.callback_query_handler(func=lambda call: call.data == 'back_to_main_menu')
-#      def handle_back_to_main_menu_handler(call):
-#         start(call.message, bot)
-
-#      @bot.message_handler(content_types=['photo'])
-#      def handle_photo_handler(message):
-#         handle_photo(message, bot)          
-        
-
-#      @bot.callback_query_handler(func=lambda call: call.data == 'delete_photo')
-#      def delete_photo_handler(call):
-#         delete_photo(call, bot)
-
-#      @bot.callback_query_handler(func=lambda call: call.data == 'edit_text')
-#      def edit_text_handler(call):
-#         edit_text(call, bot)
-        
-#      @bot.message_handler(func=lambda message: get_user_state(message.from_user.id).description_received)
-#      def handle_description_handler(message):
-#         handle_description(message, bot)
-
-#      @bot.message_handler(func=lambda message: get_user_state(message.from_user.id).is_editing_text)
-#      def handle_messages_handler(message):
-#         handle_messages(message, bot)
-
-#      @bot.callback_query_handler(func=lambda call: call.data == 'confirm_send')
-#      def confirm_send_handler(call):
-#         confirm_send(call, bot)
-
-
-#      @bot.callback_query_handler(func=lambda call: call.data in ['3d_scan_main_menu', '3d_model_main_menu', '3d_print_main_menu'])
-#      def print_main_menu_handler(call):
-#         if call.data == '3d_print_main_menu':
-#             print_main_menu(call, bot)   
-
-    #  @bot.callback_query_handler(func=lambda call: call.data == 'start')
-    #  def reset_user_state_handler(call):
-    #     reset_user_state(call, bot)
-    
+    del user_data[message.chat.id]
