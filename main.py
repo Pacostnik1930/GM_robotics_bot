@@ -1,8 +1,9 @@
+import uuid
 import telebot
 import sqlite3
 from telebot import types
 from registration import handle_registration,handle_authorization,handle_confirmation
-from scanning import handle_scanning, handle_back_to_photo_scanning, handle_add_photo_scanning, handle_next_step_scanning, handle_confirm_send_scanning
+from scanning import handle_scanning, handle_back_to_photo_scanning, handle_add_photo_scanning, handle_next_step_scanning, handle_confirm_send_scanning,handle_name_scanning
 from modeling import handle_modeling,handle_back_to_photo_modeling,handle_add_photo_modeling,handle_next_step_modeling,handle_confirm_send_modeling
 from print import handle_3d_print,handle_no_3d_model,handle_has_3d_model,handle_back_to_file_printing,handle_add_file_printing,handle_next_step_printing,handle_confirm_send_printing
 bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
@@ -11,27 +12,30 @@ user_data = {}
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-
-    # referrer_id = message.text.split()[1] if len(message.text.split()) > 1 else None
-    # if referrer_id:
-    #     user_data[message.chat.id] = {'referrer_id': referrer_id}
-    #     handle_scanning(message, bot)
-
-    unique_id = message.text.split('GMroboticsBot')[1] if 'GMroboticsBot' in message.text else None
-    if unique_id:
-        conn = sqlite3.connect('gmbot.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM registration WHERE unique_link LIKE ?", (f"%{unique_id}%",))
-        # user = cursor.fetchone()
+    conn = sqlite3.connect('gmbot.db')
+    cursor = conn.cursor()
+    args = message.text.split()
+    if len(args) == 1:
+        handle_registration(message, bot)
+    elif len(args) > 1:
+        unique_id = args[1]
+        print(unique_id)  # Вывод значения unique_id для проверки
+        query = "SELECT chat_id FROM registration WHERE unique_id = ?"
+        cursor.execute(query, (unique_id,))
+        cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
+        result = cursor.fetchone()
+        print(result)
         cursor.close()
         conn.close()
-    #     if user:
-    #         # Пользователь найден, выполните необходимые действия
-    #         bot.send_message(message.chat.id, f"Добро пожаловать, {user[2]}!")
-    #     else:
-    #         bot.send_message(message.chat.id, "Недействительная ссылка.")
-    # else:
-    #     bot.send_message(message.chat.id, "Пожалуйста, перейдите по уникальной ссылке для регистрации.")
+
+        if result:
+            chat_id = result[0]
+            bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
+            # user_data[message.chat.id] = {'user_id': user_id}  # Эта строка не нужна, так как user_id не извлекается из запроса
+        else:
+            bot.send_message(message.chat.id, "Неверная ссылка.")
+
+
 
     keyboard = types.InlineKeyboardMarkup(row_width=2)
     btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
@@ -67,7 +71,6 @@ def scanning(call):
     handle_scanning(call.message, bot) 
 
 
-
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_photo_scanning')
 def callback_back_to_photo_scanning(call):
     handle_back_to_photo_scanning(call, bot)
@@ -81,11 +84,9 @@ def callback_next_step_scanning(call):
     handle_next_step_scanning(call, bot)
 
 
-
 @bot.callback_query_handler(func=lambda call: call.data == 'confirm_send_scanning')
 def callback_confirm_send_scanning(call):
     handle_confirm_send_scanning(call)
-
 
 
 @bot.callback_query_handler(func=lambda call: call.data == '3Д моделирование')
