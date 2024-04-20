@@ -15,8 +15,9 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS registration
                   (id INTEGER PRIMARY KEY AUTOINCREMENT,
                    username TEXT,
                    name TEXT,
-                   unique_id TEXT, 
+                   unique_id TEXT UNIQUE,  
                    chat_id TEXT)''')
+                  
 conn.commit()
 
 
@@ -73,6 +74,8 @@ def handle_confirmation(call, bot):
     cursor = conn.cursor()
     cursor.execute("INSERT INTO registration (username, name, chat_id, unique_id) VALUES (?, ?, ?, ?)",
               (username, name, chat_id, unique_link))
+    unique_id = cursor.lastrowid
+    user_data[call.message.from_user.id] = unique_id
     conn.commit()
     cursor.close()
     conn.close()

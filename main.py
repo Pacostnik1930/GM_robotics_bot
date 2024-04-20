@@ -21,7 +21,7 @@ def send_welcome(message):
         unique_id = args[1]
         print(unique_id)  # Вывод значения unique_id для проверки
         query = "SELECT chat_id FROM registration WHERE unique_id = ?"
-        cursor.execute(query, (unique_id,))
+        cursor.execute(query, ("https://t.me/GMroboticsBot?start=" + unique_id,))
         cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
         result = cursor.fetchone()
         print(result)
@@ -31,7 +31,7 @@ def send_welcome(message):
         if result:
             chat_id = result[0]
             bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
-            # user_data[message.chat.id] = {'user_id': user_id}  # Эта строка не нужна, так как user_id не извлекается из запроса
+            user_data[message.chat.id] = {'unique_id': unique_id}  # Эта строка не нужна, так как user_id не извлекается из запроса
         else:
             bot.send_message(message.chat.id, "Неверная ссылка.")
 
@@ -84,7 +84,7 @@ def callback_next_step_scanning(call):
     handle_next_step_scanning(call, bot)
 
 
-@bot.callback_query_handler(func=lambda call: call.data == 'confirm_send_scanning')
+@bot.callback_query_handler(func=lambda call: call.data.startswith('confirm_send_scanning_'))
 def callback_confirm_send_scanning(call):
     handle_confirm_send_scanning(call)
 
