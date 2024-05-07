@@ -8,18 +8,18 @@ bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
 
-conn = sqlite3.connect('gmbot.db')
-c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS scanning
-             (id INTEGER PRIMARY KEY AUTOINCREMENT,      
-             photos TEXT,
-             description TEXT,
-             unique_id_owner TEXT,   
-             name TEXT,
-             telephone TEXT,            
-             FOREIGN KEY (unique_id_owner) REFERENCES registration (unique_id))''')
+# conn = sqlite3.connect('gmbot.db')
+# c = conn.cursor()
+# c.execute('''CREATE TABLE IF NOT EXISTS scanning
+#              (id INTEGER PRIMARY KEY AUTOINCREMENT,      
+#              photos TEXT,
+#              description TEXT,
+#              unique_id_owner TEXT,   
+#              name TEXT,
+#              telephone TEXT,            
+#              FOREIGN KEY (unique_id_owner) REFERENCES registration (unique_id))''')
 
-conn.commit()
+# conn.commit()
 
 def handle_scanning(message, bot):
     # chat_id = message.chat.id
@@ -129,33 +129,26 @@ def save_scanning_to_database(photos, description, name, phone, id):
 def send_application_to_owner(photos, description, name, phone):
     print("in send_application_to_owner")
     
-    #conn = sqlite3.connect('gmbot.db')
-    #cursor = conn.cursor()
-    #cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", (unique_id,))
-    #result = cursor.fetchone()
-    #conn.close()
-    
-    #if result is not None:
-        #owner_chat_id = result[0]  # Получаем chat_id владельца ссылки из результата запроса
-        #print(owner_chat_id)
         # Отправляем сообщение владельцу ссылки
     bot.send_message(_globals.gchat_id, f"Новая заявка от пользователя {name}:")
     bot.send_message(_globals.gchat_id, f"Номер телефона: {phone}")
     bot.send_message(_globals.gchat_id, f"Описание: {description}")
-        
-        # Отправляем фотографии владельцу ссылки
-    #     if photos:
-    #              if len(photos) == 1:
-    #                     bot.send_photo(owner_chat_id, photos[0])
-    #              else:
-    #                      media_group = [telebot.types.InputMediaPhoto(photo) for photo in photos]
-    #                      bot.send_media_group(owner_chat_id, media_group)
-        
-    #     print(f"Заявка отправлена владельцу с chat_id: {owner_chat_id}")
-    #     return True
-    # else:
-    #     print(f"Не найден владелец ссылки для unique_id: {unique_id}")
-    #     return False
+   
+    if photos:
+        if len(photos) == 1:
+            file_info = bot.get_file(photos[0])
+            downloaded_file = bot.download_file(file_info.file_path)
+            bot.send_photo(_globals.gchat_id, downloaded_file)
+        else:
+            media_group = []
+            for photo in photos:
+                file_info = bot.get_file(photo)
+                downloaded_file = bot.download_file(file_info.file_path)
+                media_group.append(telebot.types.InputMediaPhoto(downloaded_file))
+            bot.send_media_group(_globals.gchat_id, media_group)
+    
+    print(f"Заявка отправлена владельцу с chat_id: {_globals.gchat_id}")
+    return True 
 
 def handle_confirm_send_scanning(call):
     conn = sqlite3.connect('gmbot.db')
