@@ -1,11 +1,13 @@
-import uuid
+
 import telebot
 import sqlite3
 from telebot import types
 from registration import handle_registration,handle_authorization,handle_confirmation
-from scanning import handle_scanning, handle_back_to_photo_scanning, handle_add_photo_scanning, handle_next_step_scanning, handle_confirm_send_scanning,handle_name_scanning
+from scanning import handle_scanning, handle_back_to_photo_scanning, handle_add_photo_scanning, handle_next_step_scanning, handle_confirm_send_scanning#, handle_name_scanning
 from modeling import handle_modeling,handle_back_to_photo_modeling,handle_add_photo_modeling,handle_next_step_modeling,handle_confirm_send_modeling
 from print import handle_3d_print,handle_no_3d_model,handle_has_3d_model,handle_back_to_file_printing,handle_add_file_printing,handle_next_step_printing,handle_confirm_send_printing
+import _globals
+
 bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
@@ -19,29 +21,29 @@ def send_welcome(message):
         handle_registration(message, bot)
     elif len(args) > 1:
         unique_id = args[1]
-        print(unique_id)  # Вывод значения unique_id для проверки
-        query = "SELECT chat_id FROM registration WHERE unique_id = ?"
-        cursor.execute(query, ("https://t.me/GMroboticsBot?start=" + unique_id,))
+        print("unique_id=", unique_id)  # Вывод значения unique_id для проверки
+        # query = "SELECT chat_id FROM registration WHERE unique_id = ?"
+        # cursor.execute(query, ("https://t.me/GMroboticsBot?start=" + unique_id,))
         cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
         result = cursor.fetchone()
-        print(result)
+        print("sw: chat_id=", result[0], " for unique_id= ", unique_id)
         cursor.close()
         conn.close()
 
         if result:
             chat_id = result[0]
+            _globals.gchat_id = chat_id
+            print("sw: _globals.gchat_id=", _globals.gchat_id)
             bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
-            user_data[message.chat.id] = {'unique_id': unique_id}  # Эта строка не нужна, так как user_id не извлекается из запроса
+            user_data[message.chat.id] = {'unique_id': unique_id}  
         else:
             bot.send_message(message.chat.id, "Неверная ссылка.")
 
-
-
-    keyboard = types.InlineKeyboardMarkup(row_width=2)
-    btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
-    btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
-    keyboard.add(btn8, btn9)
-    bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+        keyboard = types.InlineKeyboardMarkup(row_width=2)
+        btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
+        btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
+        keyboard.add(btn8, btn9)
+        bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
     
 def provide_service(message,bot):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
@@ -57,6 +59,8 @@ def need_service(message,bot):
     btn3 = types.InlineKeyboardButton('3Д печать', callback_data='3Д печать')
     keyboard.add(btn1, btn2, btn3)
     bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'need_service')
 def callback_need_service(call):
