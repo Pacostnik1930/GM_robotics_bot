@@ -7,6 +7,7 @@ import _globals
 bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
+# user_states = {}
 
 # conn = sqlite3.connect('gmbot.db')
 # c = conn.cursor()
@@ -21,8 +22,13 @@ user_data = {}
 
 # conn.commit()
 
+
+# def get_gchat_id():
+#     gchat_id = ""
+#     return gchat_id
+
 def handle_scanning(message, bot):
-    # chat_id = message.chat.id
+    # gchat_id = get_gchat_id()
     user_data[_globals.gchat_id] = {'photos': []}
     send_photo_request_scanning(message, bot)
 
@@ -67,7 +73,7 @@ def handle_next_step_scanning(call, bot):
     bot.send_message(message.chat.id, "Пожалуйста, опишите фронт работ.")
     bot.register_next_step_handler(message, handle_description_scanning, bot)
 
-def handle_description_scanning(message,bot):    
+def handle_description_scanning(message,bot):  
     description = message.text
     user_data[_globals.gchat_id]['description'] = description
     bot.send_message(message.chat.id, "Вы ввели следующее описание фронта работ:")
@@ -101,8 +107,6 @@ def save_scanning_to_database(photos, description, name, phone, id):
     try:
         conn = sqlite3.connect('gmbot.db')
         cursor = conn.cursor()
- #       cursor.execute('select id from registration where chat_id=?', (chat_id))
- #       id = cursor.fetchone()
         print("ss2db: id=", id)
 
         # Преобразуем список photos в строку JSON
@@ -153,10 +157,9 @@ def send_application_to_owner(photos, description, name, phone):
 def handle_confirm_send_scanning(call):
     conn = sqlite3.connect('gmbot.db')
     cursor = conn.cursor()
- 
     message = call.message
     chat_id = message.chat.id
-
+    # user_states[chat_id] = '3Д сканирование'
     print("hcss: fetching id from registration with chat_id=", (_globals.gchat_id))
     
     # 'select chat_id from registration where unique_id=?''   
@@ -187,6 +190,9 @@ def handle_confirm_send_scanning(call):
             bot.answer_callback_query(call.id, "Ошибка при отправке заявки.")
     else:
         bot.answer_callback_query(call.id, "Не найден соответствующий идентификатор пользователя (unique_id) в базе данных.")
+
+
+
 
 # def send_confirmation_scanning(message, bot, photos, description, name,phone):
 #     bot.send_message(message.chat.id, "Данные отправлены:")

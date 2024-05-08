@@ -12,18 +12,54 @@ bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
 
+# @bot.message_handler(commands=['start'])
+# def send_welcome(message):
+#     conn = sqlite3.connect('gmbot.db')
+#     cursor = conn.cursor()
+#     args = message.text.split()
+#     if len(args) == 1:
+#         handle_registration(message, bot)
+#     elif len(args) > 1:
+#         unique_id = args[1]
+#         print("unique_id=", unique_id)  # Вывод значения unique_id для проверки
+#         # query = "SELECT chat_id FROM registration WHERE unique_id = ?"
+#         # cursor.execute(query, ("https://t.me/GMroboticsBot?start=" + unique_id,))
+#         cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
+#         result = cursor.fetchone()
+#         print("sw: chat_id=", result[0], " for unique_id= ", unique_id)
+#         cursor.close()
+#         conn.close()
+
+#         if result:
+#             chat_id = result[0]
+#             _globals.gchat_id = chat_id
+#             print("sw: _globals.gchat_id=", _globals.gchat_id)
+#             bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
+#             user_data[message.chat.id] = {'unique_id': unique_id}  
+#         else:
+#             bot.send_message(message.chat.id, "Неверная ссылка.")
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     conn = sqlite3.connect('gmbot.db')
     cursor = conn.cursor()
     args = message.text.split()
-    if len(args) == 1:
+    
+    if message.chat.id in user_data and 'unique_id' in user_data[message.chat.id]:
+        # Пользователь уже находится внутри ссылки
+        unique_id = user_data[message.chat.id]['unique_id']
+        print("sw: user is already inside the link with unique_id=", unique_id)
+        bot.send_message(message.chat.id, f"Вы уже находитесь внутри ссылки с ID: {unique_id}")
+        keyboard = types.InlineKeyboardMarkup(row_width=2)
+        btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
+        btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
+        keyboard.add(btn8, btn9)
+        bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+    elif len(args) == 1:
         handle_registration(message, bot)
     elif len(args) > 1:
         unique_id = args[1]
         print("unique_id=", unique_id)  # Вывод значения unique_id для проверки
-        # query = "SELECT chat_id FROM registration WHERE unique_id = ?"
-        # cursor.execute(query, ("https://t.me/GMroboticsBot?start=" + unique_id,))
         cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
         result = cursor.fetchone()
         print("sw: chat_id=", result[0], " for unique_id= ", unique_id)
@@ -157,4 +193,4 @@ def callback_authorization(call):
 def callback_confirmation(call):
     handle_confirmation(call,bot)
 
-bot.polling()
+bot.polling(none_stop=True)
