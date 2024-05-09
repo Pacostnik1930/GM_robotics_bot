@@ -1,6 +1,8 @@
 
 import telebot
 import sqlite3
+import threading
+import time
 from telebot import types
 from registration import handle_registration,handle_authorization,handle_confirmation
 from scanning import handle_scanning, handle_back_to_photo_scanning, handle_add_photo_scanning, handle_next_step_scanning, handle_confirm_send_scanning#, handle_name_scanning
@@ -12,50 +14,36 @@ bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
 
-# @bot.message_handler(commands=['start'])
-# def send_welcome(message):
-#     conn = sqlite3.connect('gmbot.db')
-#     cursor = conn.cursor()
-#     args = message.text.split()
-#     if len(args) == 1:
-#         handle_registration(message, bot)
-#     elif len(args) > 1:
-#         unique_id = args[1]
-#         print("unique_id=", unique_id)  # Вывод значения unique_id для проверки
-#         # query = "SELECT chat_id FROM registration WHERE unique_id = ?"
-#         # cursor.execute(query, ("https://t.me/GMroboticsBot?start=" + unique_id,))
-#         cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
-#         result = cursor.fetchone()
-#         print("sw: chat_id=", result[0], " for unique_id= ", unique_id)
-#         cursor.close()
-#         conn.close()
+def update_registered_users():
+    while True:
+        conn = sqlite3.connect('gmbot.db')
+        cursor = conn.cursor()
+        
+        # Получаем список всех зарегистрированных пользователей из базы данных
+        cursor.execute("SELECT chat_id FROM registration")
+        registered_users = [row[0] for row in cursor.fetchall()]
+        
+        # Обновляем данные о зарегистрированных пользователях в боте
+        for chat_id in registered_users:
+            if chat_id not in user_data:
+                user_data[chat_id] = {'registered': True}
+        
+        cursor.close()
+        conn.close()
+        
+        # Ждем некоторое время перед следующей проверкой (например, 5 минут)
+        time.sleep(300)
 
-#         if result:
-#             chat_id = result[0]
-#             _globals.gchat_id = chat_id
-#             print("sw: _globals.gchat_id=", _globals.gchat_id)
-#             bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
-#             user_data[message.chat.id] = {'unique_id': unique_id}  
-#         else:
-#             bot.send_message(message.chat.id, "Неверная ссылка.")
+# Запускаем отдельный поток для обновления зарегистрированных пользователей
+threading.Thread(target=update_registered_users, daemon=True).start()
+
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     conn = sqlite3.connect('gmbot.db')
     cursor = conn.cursor()
     args = message.text.split()
-    
-    if message.chat.id in user_data and 'unique_id' in user_data[message.chat.id]:
-        # Пользователь уже находится внутри ссылки
-        unique_id = user_data[message.chat.id]['unique_id']
-        print("sw: user is already inside the link with unique_id=", unique_id)
-        bot.send_message(message.chat.id, f"Вы уже находитесь внутри ссылки с ID: {unique_id}")
-        keyboard = types.InlineKeyboardMarkup(row_width=2)
-        btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
-        btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
-        keyboard.add(btn8, btn9)
-        bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
-    elif len(args) == 1:
+    if len(args) == 1:
         handle_registration(message, bot)
     elif len(args) > 1:
         unique_id = args[1]
@@ -65,21 +53,68 @@ def send_welcome(message):
         print("sw: chat_id=", result[0], " for unique_id= ", unique_id)
         cursor.close()
         conn.close()
-
+        
         if result:
             chat_id = result[0]
-            _globals.gchat_id = chat_id
-            print("sw: _globals.gchat_id=", _globals.gchat_id)
-            bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
-            user_data[message.chat.id] = {'unique_id': unique_id}  
+            if message.chat.id in user_data and user_data[message.chat.id]['unique_id'] == unique_id:
+                # Пользователь уже переходил по этой ссылке, оставляем его внутри текущей ссылки
+                _globals.gchat_id = chat_id
+                print("sw: _globals.gchat_id=", _globals.gchat_id)
+                bot.send_message(message.chat.id, f"Вы уже находитесь внутри ссылки от пользователя с ID: {chat_id}")
+            else:
+                # Пользователь переходит по новой ссылке
+                _globals.gchat_id = chat_id
+                print("sw: _globals.gchat_id=", _globals.gchat_id)
+                bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
+                user_data[message.chat.id] = {'unique_id': unique_id}
         else:
             bot.send_message(message.chat.id, "Неверная ссылка.")
 
-        keyboard = types.InlineKeyboardMarkup(row_width=2)
-        btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
-        btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
-        keyboard.add(btn8, btn9)
-        bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+    keyboard = types.InlineKeyboardMarkup(row_width=2)
+    btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
+    btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
+    keyboard.add(btn8, btn9)
+    bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+    
+    # if message.chat.id in user_data and 'unique_id' in user_data[message.chat.id]:
+    #     # Пользователь уже находится внутри ссылки
+    #     unique_id = user_data[message.chat.id]['unique_id']
+    #     print("sw: user is already inside the link with unique_id=", unique_id)
+    #     bot.send_message(message.chat.id, f"Вы уже находитесь внутри ссылки с ID: {unique_id}")
+    #     keyboard = types.InlineKeyboardMarkup(row_width=2)
+    #     btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
+    #     btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
+    #     keyboard.add(btn8, btn9)
+    #     bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+    
+        
+    # if len(args) == 1:
+    #     handle_registration(message, bot)
+    # elif len(args) > 1:
+    #     unique_id = args[1]
+    #     print("unique_id=", unique_id)  # Вывод значения unique_id для проверки
+    #     cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
+    #     result = cursor.fetchone()
+    #     print("sw: chat_id=", result[0], " for unique_id= ", unique_id)
+    #     cursor.close()
+    #     conn.close()
+        
+    #     if result:
+    #         chat_id = result[0]
+    #         _globals.gchat_id = chat_id
+    #         print("sw: _globals.gchat_id=", _globals.gchat_id)
+    #         bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
+    #         user_data[message.chat.id] = {'unique_id': unique_id} 
+            
+            
+    #     else:
+    #         bot.send_message(message.chat.id, "Неверная ссылка.")
+
+    #     keyboard = types.InlineKeyboardMarkup(row_width=2)
+    #     btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
+    #     btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
+    #     keyboard.add(btn8, btn9)
+    #     bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
     
 def provide_service(message,bot):
     keyboard = types.InlineKeyboardMarkup(row_width=1)

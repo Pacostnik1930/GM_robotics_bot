@@ -162,7 +162,7 @@ def generate_unique_link():
     count = cursor.fetchone()[0]
     cursor.close()
     conn.close()
-    unique_id = str(count + 1).zfill(2)
+    unique_id = str(count + 1)
     # unique_id = str(uuid.uuid4())
     return f"https://t.me/GMroboticsBot?start={unique_id}"
    

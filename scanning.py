@@ -98,7 +98,7 @@ def handle_phone_scanning(message, bot):
 
 def send_confirmation_buttons_scanning(message, bot):
     keyboard = types.InlineKeyboardMarkup()
-    btn2 = types.InlineKeyboardButton(text='Подтвердить отправку', callback_data=f"confirm_send_scanning_")
+    btn2 = types.InlineKeyboardButton(text=u'\U00002705 Подтвердить отправку', callback_data=f"confirm_send_scanning_")
     keyboard.add(btn2)
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=keyboard)
 
