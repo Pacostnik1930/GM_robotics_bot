@@ -185,6 +185,7 @@ def handle_confirm_send_scanning(call):
         if save_scanning_to_database(photos, description, name, phone, result[0]):
             send_application_to_owner(photos, description, name, phone)  
             bot.answer_callback_query(call.id, "Заявка успешно отправлена.")
+            bot.send_message(message.chat.id, "С вами свяжутся в ближайшее время. Чтобы создать новое обращение, нажмите /start.")
         else:
             bot.send_message(chat_id, "Произошла ошибка при сохранении заявки.")
             bot.answer_callback_query(call.id, "Ошибка при отправке заявки.")

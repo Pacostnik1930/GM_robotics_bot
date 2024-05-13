@@ -14,29 +14,9 @@ bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
 
-def update_registered_users():
-    while True:
-        conn = sqlite3.connect('gmbot.db')
-        cursor = conn.cursor()
-        
-        # Получаем список всех зарегистрированных пользователей из базы данных
-        cursor.execute("SELECT chat_id FROM registration")
-        registered_users = [row[0] for row in cursor.fetchall()]
-        
-        # Обновляем данные о зарегистрированных пользователях в боте
-        for chat_id in registered_users:
-            if chat_id not in user_data:
-                user_data[chat_id] = {'registered': True}
-        
-        cursor.close()
-        conn.close()
-        
-        # Ждем некоторое время перед следующей проверкой (например, 5 минут)
-        time.sleep(300)
-
-# Запускаем отдельный поток для обновления зарегистрированных пользователей
-threading.Thread(target=update_registered_users, daemon=True).start()
-
+@bot.message_handler(commands=['info'])
+def information(message):
+    bot.send_message(message.chat.id, "Здесь будет описание работы с ботом")
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -70,51 +50,14 @@ def send_welcome(message):
         else:
             bot.send_message(message.chat.id, "Неверная ссылка.")
 
+
+
     keyboard = types.InlineKeyboardMarkup(row_width=2)
     btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
     btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
-    keyboard.add(btn8, btn9)
-    bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
-    
-    # if message.chat.id in user_data and 'unique_id' in user_data[message.chat.id]:
-    #     # Пользователь уже находится внутри ссылки
-    #     unique_id = user_data[message.chat.id]['unique_id']
-    #     print("sw: user is already inside the link with unique_id=", unique_id)
-    #     bot.send_message(message.chat.id, f"Вы уже находитесь внутри ссылки с ID: {unique_id}")
-    #     keyboard = types.InlineKeyboardMarkup(row_width=2)
-    #     btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
-    #     btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
-    #     keyboard.add(btn8, btn9)
-    #     bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
-    
-        
-    # if len(args) == 1:
-    #     handle_registration(message, bot)
-    # elif len(args) > 1:
-    #     unique_id = args[1]
-    #     print("unique_id=", unique_id)  # Вывод значения unique_id для проверки
-    #     cursor.execute("SELECT chat_id FROM registration WHERE unique_id = ?", ("https://t.me/GMroboticsBot?start=" + unique_id,))
-    #     result = cursor.fetchone()
-    #     print("sw: chat_id=", result[0], " for unique_id= ", unique_id)
-    #     cursor.close()
-    #     conn.close()
-        
-    #     if result:
-    #         chat_id = result[0]
-    #         _globals.gchat_id = chat_id
-    #         print("sw: _globals.gchat_id=", _globals.gchat_id)
-    #         bot.send_message(message.chat.id, f"Вы перешли по ссылке от пользователя с ID: {chat_id}")
-    #         user_data[message.chat.id] = {'unique_id': unique_id} 
-            
-            
-    #     else:
-    #         bot.send_message(message.chat.id, "Неверная ссылка.")
-
-    #     keyboard = types.InlineKeyboardMarkup(row_width=2)
-    #     btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
-    #     btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
-    #     keyboard.add(btn8, btn9)
-    #     bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+    btn_info = types.InlineKeyboardButton('Инструкция по использованию',callback_data='get_info')
+    keyboard.add(btn8, btn9,btn_info)
+    bot.send_message(message.chat.id, "Выберите раздел:", reply_markup=keyboard)
     
 def provide_service(message,bot):
     keyboard = types.InlineKeyboardMarkup(row_width=1)
@@ -129,9 +72,25 @@ def need_service(message,bot):
     btn2 = types.InlineKeyboardButton('3Д сканирование', callback_data='3Д сканирование')
     btn3 = types.InlineKeyboardButton('3Д печать', callback_data='3Д печать')
     keyboard.add(btn1, btn2, btn3)
-    bot.send_message(message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+    bot.send_message(message.chat.id, "Выберите раздел:", reply_markup=keyboard)
 
-
+def get_info(message,bot):
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    btn_back_info = types.InlineKeyboardButton('Назад',callback_data='back_info')
+    keyboard.add(btn_back_info)
+    info_text = "1. Регистрация и получение уникальной ссылки:\n\
+    - При регистрации вы получаете уникальную ссылку, которая становится вашим личным помощником.\n\n\
+    2. Размещение ссылки:\n\
+    - Разместите эту ссылку на ресурсах, где вы размещаете вашу рекламу.\n\
+    - Пользователь, перешедший по этой ссылке, попадает на вашу страницу.\n\n\
+    3. Заполнение заявки:\n\
+    - Когда пользователь заполняет заявку на вашей странице, она автоматически поступает к вам.\n\
+    - Таким образом, вы экономите время на сборе информации.\n\n\
+    4. Удобство хранения данных:\n\
+    - Технические задания, фотографии и файлы приходят вам на одну платформу для удобного доступа.\n\n\
+    5. Пример действия:\n\
+    - Нажмите на кнопку 'Мне нужна услуга' для просмотра визуального примера работы бота."
+    bot.send_message(message.chat.id,info_text,reply_markup=keyboard)  
 
 @bot.callback_query_handler(func=lambda call: call.data == 'need_service')
 def callback_need_service(call):
@@ -140,6 +99,20 @@ def callback_need_service(call):
 @bot.callback_query_handler(func=lambda call: call.data == 'provide_a_service')
 def callback_provide_service(call):
     provide_service(call.message,bot)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'get_info')
+def callback_get_info(call):
+    get_info(call.message,bot)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'back_info')
+def callback_back_info(call):
+    keyboard = types.InlineKeyboardMarkup(row_width=2)
+    btn8 = types.InlineKeyboardButton('Мне нужна услуга', callback_data='need_service')
+    btn9 = types.InlineKeyboardButton('Я оказываю услугу', callback_data='provide_a_service')
+    btn_info = types.InlineKeyboardButton('Инструкция по использованию',callback_data='get_info')
+    keyboard.add(btn8, btn9,btn_info)
+    bot.send_message(call.message.chat.id, "Привет! Выберите раздел:", reply_markup=keyboard)
+
     
 @bot.callback_query_handler(func=lambda call: call.data == '3Д сканирование')
 def scanning(call):
