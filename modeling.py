@@ -3,20 +3,11 @@ from telebot import types
 import telebot
 import sqlite3
 import _globals
+import mysql.connector
 
 bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
 user_data = {}
-
-# conn = sqlite3.connect('gmbot.db')
-# c = conn.cursor()
-# c.execute('''CREATE TABLE IF NOT EXISTS modeling
-#              (id INTEGER PRIMARY KEY AUTOINCREMENT,
-#              photos TEXT,
-#              description TEXT,
-#              name TEXT,
-#              telephone TEXT)''')
-# conn.commit()
 
 def handle_modeling(message, bot):
     user_data[_globals.gchat_id] = {'photos': []}
@@ -90,7 +81,7 @@ def handle_phone_modeling(message, bot):
 
 def send_confirmation_buttons_modeling(message, bot):
     keyboard = types.InlineKeyboardMarkup()
-    btn2 = types.InlineKeyboardButton(text='Подтвердить отправку', callback_data='confirm_send_modeling')
+    btn2 = types.InlineKeyboardButton(text=u'\U00002705 Подтвердить отправку', callback_data='confirm_send_modeling')
     keyboard.add(btn2)
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=keyboard)
 
@@ -98,7 +89,12 @@ def send_confirmation_buttons_modeling(message, bot):
 def save_modeling_to_database(photos, description, name, phone, id):
     print("sm2db: in")
     try:
-        conn = sqlite3.connect('gmbot.db')
+        conn = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="1930",
+        database="gm_robotics"
+    )
         cursor = conn.cursor()
         print("sm2db: id=", id)
 
@@ -106,8 +102,9 @@ def save_modeling_to_database(photos, description, name, phone, id):
         photos_json = json.dumps(photos)
 
         # Всегда создаем новую запись для каждой заявки
-        cursor.execute("INSERT INTO modeling (photos, description, name, telephone, unique_id_owner) VALUES (?, ?, ?, ?,?)",
-                       (photos_json, description, name, phone, id))
+        query = "INSERT INTO modeling (photos, description, name, telephone, unique_id_owner) VALUES (%s, %s, %s, %s, %s)"
+        values = (photos_json, description, name, phone, id)
+        cursor.execute(query, values)
         print("sm2db: inserted")
         conn.commit()
         print("sm2db: commited")
@@ -127,9 +124,9 @@ def send_application_modeling_to_owner(photos, description, name, phone):
     print("in send_application_to_owner")
     
         # Отправляем сообщение владельцу ссылки
-    bot.send_message(_globals.gchat_id, f"Новая заявка от пользователя {name}:")
-    bot.send_message(_globals.gchat_id, f"Номер телефона: {phone}")
-    bot.send_message(_globals.gchat_id, f"Описание: {description}")
+    bot.send_message(_globals.gchat_id, f"\U0001F4DC Новая заявка от пользователя : {name}:")
+    bot.send_message(_globals.gchat_id, f"\U0001F4DE Номер телефона : {phone}")
+    bot.send_message(_globals.gchat_id, f"\U0000270F\U0000FE0F Описание : {description}")
    
     if photos:
         if len(photos) == 1:
@@ -149,11 +146,15 @@ def send_application_modeling_to_owner(photos, description, name, phone):
 
 
 def handle_confirm_send_modeling(call):
-    conn = sqlite3.connect('gmbot.db')
+    conn = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="1930",
+        database="gm_robotics"
+    )
     cursor = conn.cursor()
     message = call.message
     chat_id = message.chat.id
-    # user_states[chat_id] = '3Д сканирование'
     print("hcsm: fetching id from registration with chat_id=", (_globals.gchat_id))
     
     # 'select chat_id from registration where unique_id=?''   
@@ -167,24 +168,26 @@ def handle_confirm_send_modeling(call):
     phone = user_data[_globals.gchat_id].get('phone', '')
     
     # Получаем значение unique_id из базы данных
-    cursor.execute("SELECT id FROM registration WHERE chat_id = ?", (_globals.gchat_id,))
-    print("hcsm: executed")
+    query = "SELECT id FROM registration WHERE chat_id = %s"
+    values = (_globals.gchat_id,)
+    cursor.execute(query, values)
+    print("hcss: executed")
     result = cursor.fetchone()
-    print("hcsm: fetched")
+    print("hcss: fetched")
     conn.close()
     
     if result is not None:
         print("hcss: calling sm2db(.. ?)", (result[0]))
-        # unique_id = result[0]  # Получаем значение unique_id из результата запроса
         if save_modeling_to_database(photos, description, name, phone, result[0]):
             send_application_modeling_to_owner(photos, description, name, phone)  
             bot.answer_callback_query(call.id, "Заявка успешно отправлена.")
+            bot.send_message(message.chat.id, "С вами свяжутся в ближайшее время. Чтобы создать новое обращение, нажмите /start.")
         else:
             bot.send_message(chat_id, "Произошла ошибка при сохранении заявки.")
             bot.answer_callback_query(call.id, "Ошибка при отправке заявки.")
     else:
         bot.answer_callback_query(call.id, "Не найден соответствующий идентификатор пользователя (unique_id) в базе данных.")
-
+        bot.send_message(message.chat.id,"Нажмите /start")
 
 # def handle_confirm_send_modeling(call):
 #     message = call.message

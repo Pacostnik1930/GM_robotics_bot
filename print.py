@@ -3,6 +3,7 @@ import telebot
 from telebot import types
 import sqlite3
 import _globals
+import mysql.connector
 
 bot = telebot.TeleBot('7138089393:AAEoBSwwCzVYOaUDEQdv6Vv0ILiaR-LwZ5k')
 
@@ -87,61 +88,88 @@ def handle_next_step_printing(call, bot):
 def handle_description_printing(message,bot):
     description = message.text
     user_data[_globals.gchat_id]['description'] = description
-    bot.send_message(_globals.gchat_id, "Вы ввели следующее описание фронта работ:")
-    bot.send_message(_globals.gchat_id, description)
-    bot.send_message(_globals.gchat_id, "Пожалуйста, введите Ваше имя.")
+    bot.send_message(message.chat.id, "Вы ввели следующее описание фронта работ:")
+    bot.send_message(message.chat.id, description)
+    bot.send_message(message.chat.id, "Пожалуйста, введите Ваше имя.")
     bot.register_next_step_handler(message, handle_name_printing, bot)
 
 def handle_name_printing(message,bot):
     name = message.text
     user_data[_globals.gchat_id]['name'] = name
-    bot.send_message(_globals.gchat_id, "Вы ввели следующее имя:")
-    bot.send_message(_globals.gchat_id, name)
-    bot.send_message(_globals.gchat_id, "Пожалуйста, введите Ваш телефонный номер.")
+    bot.send_message(message.chat.id, "Вы ввели следующее имя:")
+    bot.send_message(message.chat.id, name)
+    bot.send_message(message.chat.id, "Пожалуйста, введите Ваш телефонный номер.")
     bot.register_next_step_handler(message, handle_phone_printing, bot)    
  
 def handle_phone_printing(message, bot):
     phone = message.text
     user_data[_globals.gchat_id]['phone'] = phone
-    bot.send_message(_globals.gchat_id, "Вы ввели следующий телефонный номер:")
-    bot.send_message(_globals.gchat_id, phone)
+    bot.send_message(message.chat.id, "Вы ввели следующий телефонный номер:")
+    bot.send_message(message.chat.id, phone)
     send_confirmation_buttons_printing(message, bot) 
 
 
 def send_confirmation_buttons_printing(message, bot):
     keyboard = types.InlineKeyboardMarkup()
-    btn2 = types.InlineKeyboardButton(text='Подтвердить отправку', callback_data='confirm_send_printing')
+    btn2 = types.InlineKeyboardButton(text=u'\U00002705 Подтвердить отправку', callback_data='confirm_send_printing')
     keyboard.add( btn2)
     bot.send_message(message.chat.id, "Выберите действие:", reply_markup=keyboard)
-
 
 def save_print_to_database(files, description, name, phone, id):
     print("ss2db: in")
     try:
-        conn = sqlite3.connect('gmbot.db')
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="1930",
+            database="gm_robotics"
+        )
         cursor = conn.cursor()
         print("ss2db: id=", id)
 
-        # Преобразуем список photos в строку JSON
         documents_json = json.dumps(files)
-
-        # Всегда создаем новую запись для каждой заявки
-        cursor.execute("INSERT INTO printing (files, description, name, telephone, unique_id_owner) VALUES (?, ?, ?, ?,?)",
-                       (documents_json, description, name, phone, id))
+        query = "INSERT INTO printing (files, description, name, telephone, unique_id_owner) VALUES (%s, %s, %s, %s, %s)"
+        values = (documents_json, description, name, phone, id)
+        cursor.execute(query, values)
         print("ss2db: inserted")
         conn.commit()
-        print("ss2db: commited")
-        
+        print("ss2db: commited")   
     except Exception as e:
         print(f"Ошибка при сохранении в базу данных: {e}")  # Логирование ошибки
-    
         return False
-    
     finally:
         if conn:
             cursor.close()
             conn.close()
-    return True  # Возвращаем True, если дошли до этой точки без ошибок
+    return True 
+
+# def save_print_to_database(files, description, name, phone, id):
+#     print("ss2db: in")
+#     try:
+#         conn = sqlite3.connect('gmbot.db')
+#         cursor = conn.cursor()
+#         print("ss2db: id=", id)
+
+#         # Преобразуем список photos в строку JSON
+#         documents_json = json.dumps(files)
+
+#         # Всегда создаем новую запись для каждой заявки
+#         cursor.execute("INSERT INTO printing (files, description, name, telephone, unique_id_owner) VALUES (?, ?, ?, ?,?)",
+#                        (documents_json, description, name, phone, id))
+#         print("ss2db: inserted")
+#         conn.commit()
+#         print("ss2db: commited")
+        
+#     except Exception as e:
+#         print(f"Ошибка при сохранении в базу данных: {e}")  # Логирование ошибки
+    
+#         return False
+    
+#     finally:
+#         if conn:
+#             cursor.close()
+#             conn.close()
+#     return True  # Возвращаем True, если дошли до этой точки без ошибок
 
 def send_application_print_to_owner(files, description, name, phone):
     print("in send_application_to_owner")
@@ -172,11 +200,15 @@ def send_application_print_to_owner(files, description, name, phone):
     return True
 
 def handle_confirm_send_printing(call):
-    conn = sqlite3.connect('gmbot.db')
+    conn = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="1930",
+        database="gm_robotics"
+    )
     cursor = conn.cursor()
     message = call.message
     chat_id = message.chat.id
-    # user_states[chat_id] = '3Д сканирование'
     print("hcss: fetching id from registration with chat_id=", (_globals.gchat_id))
     
     # 'select chat_id from registration where unique_id=?''   
@@ -190,7 +222,9 @@ def handle_confirm_send_printing(call):
     phone = user_data[_globals.gchat_id].get('phone', '')
     
     # Получаем значение unique_id из базы данных
-    cursor.execute("SELECT id FROM registration WHERE chat_id = ?", (_globals.gchat_id,))
+    query = "SELECT id FROM registration WHERE chat_id = %s"
+    values = (_globals.gchat_id,)
+    cursor.execute(query, values)
     print("hcss: executed")
     result = cursor.fetchone()
     print("hcss: fetched")
@@ -208,7 +242,9 @@ def handle_confirm_send_printing(call):
             bot.answer_callback_query(call.id, "Ошибка при отправке заявки.")
     else:
         bot.answer_callback_query(call.id, "Не найден соответствующий идентификатор пользователя (unique_id) в базе данных.")
-
+        bot.send_message(message.chat.id,"Нажмите /start")
+        # unique_id = result[0]  # Получаем значение unique_id из результата запроса
+        
 # def handle_confirm_send_printing(call):
 #     message = call.message
 #     chat_id = message.chat.id
